@@ -1,16 +1,21 @@
 import React from "react";
 import { GetServerSideProps } from "next";
 import { prisma } from "@/lib/api/db";
+import { ArchivedFormat } from "@/types/global";
+
 import RSS from "rss";
 
 const RSSFeed: React.FC = () => null;
 
 export const getServerSideProps: GetServerSideProps = async ({
   params,
+  query,
   res,
   req,
 }) => {
   const id = Number(params?.id as string);
+  const format = Number(query?.format as string)
+
   if (isNaN(id) || !id) {
     if (res) {
       res.statusCode = 404;
@@ -52,16 +57,54 @@ export const getServerSideProps: GetServerSideProps = async ({
     description: data.description,
     site_url: siteUrl,
     feed_url: feedUrl,
+    custom_elements: [
+      { 'content:encoded': 'content' }
+    ]
   });
 
-  data.links.forEach((link) => {
-    feed.item({
+
+  for (const link of data.links) {
+    const item = {
       title: link.name,
       description: link.description,
-      url: link.url || "",
+      url: `${protocol}://${host}/public/preserved/${link.id}?format=${format}`,
       date: link.createdAt,
-    });
-  });
+    } as RSS.ItemOptions
+
+    if (format === ArchivedFormat.readability) {
+      const response = await fetch(`${protocol}://${host}/api/v1/archives/${link.id}?format=${format}`);
+      const data = await response.json();
+      item.custom_elements = [{
+        'content:encoded': `<![CDATA[${data.content}]]>`,
+      }]
+    } else if (format === ArchivedFormat.monolith) {
+      const response = await fetch(`${protocol}://${host}/api/v1/archives/${link.id}?format=${format}`);
+      const data = await response.json();
+      item.custom_elements = [{
+        'content:encoded': `<![CDATA[${data.content}]]>`,
+      }]
+    } else if (format === ArchivedFormat.pdf) {
+      item.enclosure = {
+        url: `${protocol}://${host}/public/preserved/${link.id}?format=${format}`,
+        type: "application/pdf"
+      }
+    } else if (format === ArchivedFormat.png) {
+      item.enclosure = {
+        url: `${protocol}://${host}/public/preserved/${link.id}?format=${format}`,
+        type: "image/png"
+      }
+    } else if (format === ArchivedFormat.jpeg) {
+      item.enclosure = {
+        url: `${protocol}://${host}/public/preserved/${link.id}?format=${format}`,
+        type: "image/jpeg"
+      }
+    } else {
+      item.url = link.url || ""
+    }
+
+    feed.item(item)
+  }
+
 
   const xml = feed.xml({ indent: true });
 
