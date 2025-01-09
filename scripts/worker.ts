@@ -114,14 +114,13 @@ async function fetchAndProcessRSS() {
   rssSubscriptions.forEach(async (rssSubscription) => {
     try {
       const feed = await parser.parseURL(rssSubscription.url);
-
       if (
         rssSubscription.lastBuildDate &&
         new Date(rssSubscription.lastBuildDate) < new Date(feed.lastBuildDate)
       ) {
         console.log(
           "\x1b[34m%s\x1b[0m",
-          `Processing new RSS feed items for ${rssSubscription.name}`
+          `Processing new RSS feed items for ${rssSubscription.name} importing everything since ${rssSubscription.lastBuildDate}`
         );
 
         const newItems = feed.items.filter((item) => {
